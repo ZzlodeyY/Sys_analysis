@@ -15,5 +15,5 @@ print(get_char("Путь к csv"))
 ```
 3) запустите 
 ```
-python task1.py
+python task.py
 ```
