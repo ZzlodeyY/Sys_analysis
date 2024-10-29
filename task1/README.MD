@@ -9,4 +9,7 @@
 git clone
 ```
 2) укажите путь к csv в task1.py
+```
+print(get_char("Путь к csv"))
+```
 3) запустите
