@@ -6,10 +6,14 @@
 Для запуска:
 1) 
 ```
-git clone
+git clone https://github.com/ZzlodeyY/Sys_analysis.git
+cd task1
 ```
 2) укажите путь к csv в task1.py
 ```
 print(get_char("Путь к csv"))
 ```
-3) запустите
+3) запустите 
+```
+python task1.py
+```
