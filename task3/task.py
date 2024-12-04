@@ -1,98 +1,84 @@
 import json
 import math
-from collections import defaultdict
+import typing as tp
 
-def extract_vertices(graph):
-    vertices = set()
-
-    def dfs(node):
-        vertices.add(node)
-        for child in graph.get(node, {}):
-            dfs(child)
-
-    for root in graph:
-        dfs(root)
-
-    return sorted(vertices)
-
-def build_relation_matrix(graph):
-    vertices = extract_vertices(graph)
-    n = len(vertices)
-
-    vertex_index = {v: i for i, v in enumerate(vertices)}
-
-    r1 = [[0] * n for _ in range(5)]
-
-    def dfs(node, parent=None):
-        node_idx = vertex_index[node]
-        if parent is not None:
-            parent_idx = vertex_index[parent]
-            r1[0][parent_idx] += 1
-            r1[1][node_idx] += 1
-            for sibling in graph[parent]:
-                if sibling != node:
-                    sibling_idx = vertex_index[sibling]
-                    r1[4][node_idx] += 1
-                    r1[4][sibling_idx] += 1
-
-        for child in graph.get(node, {}):
-            dfs(child, node)
-
-    def dfs_indirect(node, parent=None, depth=0):
-        node_idx = vertex_index[node]
-        if parent is not None and depth > 1:
-            parent_idx = vertex_index[parent]
-            r1[2][parent_idx] += 1
-            r1[3][node_idx] += 1
-
-        for child in graph.get(node, {}):
-            dfs_indirect(child, node, depth + 1)
-
-    for root in graph:
-        dfs(root)
-        dfs_indirect(root)
-
-    return r1
-
-def calculate_entropy(matrix):
-    elements = []
-    for row in matrix:
-        elements.extend(row)
-
-    total_elements = len(elements)
-
-    frequency = defaultdict(int)
-    for el in elements:
-        frequency[el] += 1
-
-    entropy = 0.0
-    for count in frequency.values():
-        p_i = count / total_elements
-        entropy -= p_i * math.log2(p_i)
-
-    return entropy
-
-input_data = '''
-{
-    "1": {
-        "2": {
-            "3": {
-                "5": {},
-                "6": {}
-            },
-            "4": {
-                "7": {},
-                "8": {}
+TEST_STRING = """
+    {
+        "1": {
+            "2": {
+                "3": {
+                    "5": {},
+                    "6": {}
+                },
+                "4": {
+                    "7": {},
+                    "8": {}
+                }
             }
         }
     }
-}
-'''
+"""
 
-graph = json.loads(input_data)
+def get_object_from_json_string(object_string: str) -> tp.Dict[str, tp.Any]:
+    return json.loads(object_string)
 
-matrix = build_relation_matrix(graph)
+def create_node(children: tp.List[int], parent: tp.Optional[str]) -> tp.Dict:
+    return {
+        "children": children,
+        "parent": parent,
+        "relations": [0] * 5
+    }
 
-entropy = calculate_entropy(matrix)
+def calc_enthropy(matrix: tp.List[tp.List[int]]) -> float:
+    if len(matrix) == 0:
+        return 0.0
+    hj = [0.0] * len(matrix[0])
+    for row in matrix:
+        for i, val in enumerate(row):
+            if val == 0:
+                continue
+            p = val / (len(row) - 1)
+            hj[i] -= (p * math.log2(p))
+    return sum(hj)
 
-print(f"Значение энтропии: {entropy:.2f}")
+def recursive_graph_parse(
+    graph: tp.Dict[str, tp.Dict],
+    graph_repr: tp.Dict[str, tp.Dict],
+    parent: tp.Optional[str]=None
+) -> None:
+    for key, val in graph.items():
+        children = []
+        if isinstance(val, dict) and val != dict():
+            recursive_graph_parse(val, graph_repr, key)
+            children = list(val.keys())
+            
+        graph_repr[key] = create_node(children, parent)
+        graph_repr[key]["relations"][0] = len(children)
+        graph_repr[key]["relations"][1] = 1 if parent is not None else 0
+
+def relations_parse(graph_repr: tp.Dict[str, tp.Dict]) -> None:
+    for key, val in graph_repr.items():
+        if val["parent"] is not None:
+            parent = val["parent"]
+            graph_repr[key]["relations"][4] += len(graph_repr[parent]["children"]) - 1
+            if graph_repr[parent]["parent"] is not None:
+                graph_repr[key]["relations"][3] += 1
+                
+        for child in val["children"]:
+            graph_child = graph_repr[str(child)]
+            graph_repr[key]["relations"][2] += graph_child["relations"][2] + len(graph_child["children"])
+            graph_child["relations"][3] += graph_repr[key]["relations"][3]
+
+def main(input_string: str) -> None:
+    source_graph = get_object_from_json_string(input_string)
+    graph_repr = {}
+    recursive_graph_parse(source_graph, graph_repr)
+    relations_parse(graph_repr)
+    sorted_repr = {key: val for key, val in sorted(graph_repr.items(), key=lambda x: x[0])}
+    
+    for key, value in sorted_repr.items():
+        print(f"{key}: {value['relations']}")
+    print(calc_enthropy([val["relations"] for val in sorted_repr.values()]))
+
+if __name__ == "__main__":
+    main(TEST_STRING)
